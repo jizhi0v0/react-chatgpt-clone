@@ -1,4 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
+import {useStore} from './chat/chatStore.ts'
 
 const App = () => {
 
@@ -13,18 +14,29 @@ const App = () => {
     // 存储当前会话标题
     const [currentTitle, setCurrentTitle] = useState('')
     // 存储所有会话标题
-    const [titles, setTitles] = useState([])
+    const titles = useStore(state => state.titles);
+    const addTitle  = useStore(state => state.add);
+
     // 存储当前请求状态：start loading done
     const [requestStatus, setRequestStatus] = useState('')
     // 存储滚动状态
     const [autoScroll, setAutoScroll] = useState(true);
     const [abortController, setAbortController] = useState(null);
 
+    const newChat = () => {
+        setRequestStatus('abort')
+        setCurrentTitle('')
+        setPreviousChats([])
+        addTitle('New Chat')
+        setCurrentTitle('New Chat')
+    }
     const stop = () => {
         setRequestStatus('abort')
     }
 
     const sendQuestion = async () => {
+        setRequestStatus('start')
+
         const abortController = new AbortController();
         abortController.signal.onabort = () => {
             console.log('Fetch aborted');
@@ -41,7 +53,6 @@ const App = () => {
             }),
             signal
         }
-        setRequestStatus('start')
         try {
             await fetch('http://localhost:8000/completions', options)
                 .then(response => {
@@ -93,7 +104,7 @@ const App = () => {
         if (requestStatus === 'start') {
             setQuestion(value)
             if (!currentTitle) {
-                setTitles([...titles, value])
+                addTitle(value)
                 setCurrentTitle(value)
             }
             setPreviousChats([
@@ -144,14 +155,10 @@ const App = () => {
         }
     });
 
-    function createNewChat() {
-
-    }
-
     return (
         <div className="App">
             <section className="side-bar">
-                <button onClick={createNewChat}> + New Chat</button>
+                <button onClick={newChat}> + New Chat</button>
                 <ul className="history">
                     {titles && [...titles].map((title, index) => <li
                         style={{color: (currentTitle === title) ? 'coral' : ''}} key={index}
