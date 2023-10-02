@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {useStore} from './chat/chatStore.ts'
+import {sessionStore} from './chat/sessionStore.ts'
 
 const App = () => {
 
@@ -11,11 +11,10 @@ const App = () => {
     const [question, setQuestion] = useState('')
     // 存储历史聊天
     const [previousChats, setPreviousChats] = useState([])
-    // 存储当前会话标题
-    const [currentTitle, setCurrentTitle] = useState('')
+    const [currentSessionId, setCurrentSessionId] = useState('')
     // 存储所有会话标题
-    const titles = useStore(state => state.titles);
-    const addTitle  = useStore(state => state.add);
+    const sessions = sessionStore(state => state.sessions);
+    const addSession  = sessionStore(state => state.add);
 
     // 存储当前请求状态：start loading done
     const [requestStatus, setRequestStatus] = useState('')
@@ -25,10 +24,8 @@ const App = () => {
 
     const newChat = () => {
         setRequestStatus('abort')
-        setCurrentTitle('')
         setPreviousChats([])
-        addTitle('New Chat')
-        setCurrentTitle('New Chat')
+        addSession('New Chat')
     }
     const stop = () => {
         setRequestStatus('abort')
@@ -86,11 +83,11 @@ const App = () => {
     }
 
     const currentChat = previousChats.filter(chat =>
-        chat.title === currentTitle
+        chat.sessionId === currentSessionId
     )
 
-    const switchCurrentChat = (title) => {
-        setCurrentTitle(title)
+    const switchCurrentChat = (sessionId) => {
+        setCurrentSessionId(sessionId)
         setValue('')
     }
 
@@ -103,19 +100,18 @@ const App = () => {
     useEffect(() => {
         if (requestStatus === 'start') {
             setQuestion(value)
-            if (!currentTitle) {
-                addTitle(value)
-                setCurrentTitle(value)
+            if (!currentSessionId) {
+                addSession()
             }
             setPreviousChats([
                 ...previousChats,
                 {
-                    title: currentTitle,
+                    sessionId: currentSessionId,
                     role: "user",
                     content: question
                 },
                 {
-                    title: currentTitle,
+                    sessionId: currentSessionId,
                     role: "assistant",
                     content: 'loading...'
                 }
@@ -135,7 +131,7 @@ const App = () => {
             setRequestStatus('')
         }
 
-    }, [answer, requestStatus, currentTitle])
+    }, [answer, requestStatus, currentSessionId])
 
     const sectionRef = useRef(null);
 
@@ -160,10 +156,11 @@ const App = () => {
             <section className="side-bar">
                 <button onClick={newChat}> + New Chat</button>
                 <ul className="history">
-                    {titles && [...titles].map((title, index) => <li
-                        style={{color: (currentTitle === title) ? 'coral' : ''}} key={index}
-                        onClick={() => switchCurrentChat(title)}>
-                        {title}
+                    {sessions && [...sessions].map((session, index) =>
+                        <li
+                        style={{color: (currentSessionId === session.sessionId) ? 'coral' : ''}} key={index}
+                        onClick={() => switchCurrentChat(session.sessionId)}>
+                        {session.sessionName}
                     </li>)}
                 </ul>
                 <nav>
@@ -171,7 +168,7 @@ const App = () => {
                 </nav>
             </section>
             <section className="main">
-                {!currentTitle && <h1>Bobby GPT</h1>}
+                {!currentSessionId && <h1>Bobby GPT</h1>}
                 <ul className="feed" ref={sectionRef}>
                     {currentChat?.map((chat, index) => <li key={index}>
                         <p className="role">
