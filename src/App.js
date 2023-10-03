@@ -1,6 +1,11 @@
 import React, {useState, useEffect, useRef} from 'react';
 import {sessionStore} from './chat/sessionStore.ts'
+import { v4 as uuidv4 } from 'uuid';
 
+class ROLE {
+    static USER = 'user';
+    static ASSISTANT = 'assistant';
+}
 const App = () => {
 
     // 保存输入框的值
@@ -9,13 +14,15 @@ const App = () => {
     const [answer, setAnswer] = useState('')
     // 存储问题
     const [question, setQuestion] = useState('')
-    // 存储历史聊天
-    const [previousChats, setPreviousChats] = useState([])
     const [currentSessionId, setCurrentSessionId] = useState('')
-    // 存储所有会话标题
-    const sessions = sessionStore(state => state.sessions);
-    const addSession  = sessionStore(state => state.add);
+    const addConversation  = sessionStore(state => state.addConversation);
+    const getHistoryList = sessionStore(state => state.getHistoryList);
+    const getConversationList = sessionStore(state => state.getConversationList);
+    const addHistory = sessionStore(state => state.addHistory);
 
+
+    const historyList = getHistoryList(currentSessionId)
+    const sessions = getConversationList()
     // 存储当前请求状态：start loading done
     const [requestStatus, setRequestStatus] = useState('')
     // 存储滚动状态
@@ -24,8 +31,7 @@ const App = () => {
 
     const newChat = () => {
         setRequestStatus('abort')
-        setPreviousChats([])
-        addSession('New Chat')
+        setCurrentSessionId(addConversation())
     }
     const stop = () => {
         setRequestStatus('abort')
@@ -82,10 +88,6 @@ const App = () => {
         }
     }
 
-    const currentChat = previousChats.filter(chat =>
-        chat.sessionId === currentSessionId
-    )
-
     const switchCurrentChat = (sessionId) => {
         setCurrentSessionId(sessionId)
         setValue('')
@@ -101,31 +103,41 @@ const App = () => {
         if (requestStatus === 'start') {
             setQuestion(value)
             if (!currentSessionId) {
-                addSession()
+                addConversation()
             }
-            setPreviousChats([
-                ...previousChats,
-                {
-                    sessionId: currentSessionId,
-                    role: "user",
-                    content: question
-                },
-                {
-                    sessionId: currentSessionId,
-                    role: "assistant",
-                    content: 'loading...'
-                }
-            ])
+            addHistory(currentSessionId, [{
+                chatId: uuidv4(),
+                role: ROLE.USER,
+                content: question
+            },
+            {
+                chatId: uuidv4(),
+                role: ROLE.ASSISTANT,
+                content: 'loading...'
+            }])
+            // setPreviousChats([
+            //     ...previousChats,
+            //     {
+            //         sessionId: currentSessionId,
+            //         role: "user",
+            //         content: question
+            //     },
+            //     {
+            //         sessionId: currentSessionId,
+            //         role: "assistant",
+            //         content: 'loading...'
+            //     }
+            // ])
             setValue('')
         } else if (requestStatus === 'loading' && answer) {
 
-            const updatedChats = previousChats.map((chat, index) => {
-                if (index === previousChats.length - 1) {
-                    return {...chat, content: answer};
-                }
-                return chat;
-            });
-            setPreviousChats(updatedChats)
+            // const updatedChats = previousChats.map((chat, index) => {
+            //     if (index === previousChats.length - 1) {
+            //         return {...chat, content: answer};
+            //     }
+            //     return chat;
+            // });
+            // setPreviousChats(updatedChats)
         } else if (requestStatus === 'abort') {
             abortController?.abort();
             setRequestStatus('')
@@ -158,9 +170,9 @@ const App = () => {
                 <ul className="history">
                     {sessions && [...sessions].map((session, index) =>
                         <li
-                        style={{color: (currentSessionId === session.sessionId) ? 'coral' : ''}} key={index}
-                        onClick={() => switchCurrentChat(session.sessionId)}>
-                        {session.sessionName}
+                        style={{color: (currentSessionId === session.conversationId) ? 'coral' : ''}} key={index}
+                        onClick={() => switchCurrentChat(session.conversationId)}>
+                        {session.showName}
                     </li>)}
                 </ul>
                 <nav>
@@ -170,7 +182,7 @@ const App = () => {
             <section className="main">
                 {!currentSessionId && <h1>Bobby GPT</h1>}
                 <ul className="feed" ref={sectionRef}>
-                    {currentChat?.map((chat, index) => <li key={index}>
+                    {historyList?.map((chat, index) => <li key={index}>
                         <p className="role">
                             {chat.role}
                         </p>
