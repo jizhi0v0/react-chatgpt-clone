@@ -1,30 +1,36 @@
-import React from "react";
+import React, {useState} from "react";
 import {fetchEventSource} from "@microsoft/fetch-event-source";
 import { useContext } from "react";
-import { ChatsActionContext} from "./chat/ChatsContext";
+import {ChatsContext, SetRenderingChatIdContext} from "./chat/ChatsContext";
+import { useDispatch } from "react-redux";
+import {sendQuestion as doChat, updateLatestChatContent} from "./chat/ChatsReducer";
+import { OPENAI_API_KEY} from "./config/config";
 
-export default function UserInput({inputVaule, setInputVaule, sendQuestion, answerChatId}) {
+export default function UserInput() {
 
-    const action = useContext(ChatsActionContext)
-    const chatIdRef = React.useRef(answerChatId);
+    const [inputValue, setInputValue] = useState("")
 
-    // 使用 useEffect 来更新 chatIdRef.current 的值
+    const { renderingChatId, selectedId } = useContext(ChatsContext);
+    const setRenderingChatId = useContext(SetRenderingChatIdContext)
+
+    const dispatch = useDispatch();
+
     React.useEffect(() => {
-        chatIdRef.current = answerChatId;
-    }, [answerChatId]);
-
-    const handleClick = ()=> {
-        sendQuestion();
+        if (!renderingChatId) {
+            return;
+        }
+        const question = inputValue;
+        setInputValue("")
         let answer = '';
         fetchEventSource('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + process.env.REACT_APP_API_KEY
+                'Authorization': 'Bearer ' + OPENAI_API_KEY
             },
             body: JSON.stringify({
                 model: "gpt-3.5-turbo",
-                messages: [{"role": "user", "content": inputVaule}],
+                messages: [{"role": "user", "content": question}],
                 stream: true,
             }),
             onmessage(event) {
@@ -34,13 +40,10 @@ export default function UserInput({inputVaule, setInputVaule, sendQuestion, answ
                 }
                 const data = JSON.parse(event.data)
                 answer += data.choices[0]?.delta?.content || '';
-                action({
-                    type: 'update',
-                    payload: {
-                        answer: answer,
-                        chatId: chatIdRef.current
-                    }
-                })
+                dispatch(updateLatestChatContent({
+                    chatId: renderingChatId,
+                    content: answer
+                }))
             },
             onclose() {
                 console.log('close');
@@ -53,15 +56,41 @@ export default function UserInput({inputVaule, setInputVaule, sendQuestion, answ
             }
 
         });
+    }, [renderingChatId]);
+
+
+    const sendQuestion = () => {
+        dispatch(doChat({
+            newChat:
+                [
+                    {
+                        conversationId: selectedId,
+                        role: 'user',
+                        content: inputValue,
+                        createdAt: new Date().toISOString()
+                    }, {
+                    conversationId: selectedId,
+                    role: 'bot',
+                    content: 'Loading...',
+                    createdAt: new Date().toISOString()
+                }
+                ], setRenderingChatId: setRenderingChatId
+        }))
+    }
+
+    function handleKeyDown(e) {
+        if (e.keyCode === 13) {
+            sendQuestion();
+        }
     }
 
     return (
         <div className="bottom-section">
             <div className="input-container">
-                <input value={inputVaule} onChange={(e) => {
-                    setInputVaule(e.target.value);
+                <input onKeyDown={(e) => handleKeyDown(e)} value={inputValue} onChange={(e) => {
+                    setInputValue(e.target.value);
                 }}/>
-                <div id="submit" onClick={handleClick}>➢</div>
+                <div id="submit" onClick={sendQuestion}>➢</div>
             </div>
             <p className="info">
                 Chat GPT Mar 14 Version . Free Research Preview .

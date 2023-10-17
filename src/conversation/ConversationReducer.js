@@ -1,39 +1,73 @@
-export default function ConversationReducer(conversations, action) {
-    switch (action.type) {
-        case 'add': {
-            const conversationId = Date.now();
-            const added = [{
-                name: 'new chat',
-                conversationId,
-                checked: true
-            }, ...conversations]
-            return added.map(conversation => {
-                if (conversation.conversationId !== conversationId) {
-                    return {
-                        ...conversation,
-                        checked: false
-                    }
-                }
-                return conversation;
-            })
-        }
-        case 'checked': {
-            return conversations.map(conversation => {
-                if (conversation.conversationId === action.payload) {
-                    return {
-                        ...conversation,
-                        checked: true
-                    }
-                } else {
-                    return {
-                        ...conversation,
-                        checked: false
-                    }
-                }
-            })
-        }
-        default:
-            return conversations;
-    }
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
+const getConversationsFromDB = async (db) => {
+    try {
+        const data = await db.conversations.orderBy('conversationId').reverse().toArray();
+        console.log(data)
+        return data;
+    } catch (error) {
+        console.error('Failed to fetch data:', error);
+        throw error;
+    }
 }
+
+export const getConversations = createAsyncThunk('conversations/getConversations',
+    async (_, {extra: { db }}) => {
+        try {
+            return getConversationsFromDB(db);
+        } catch (error) {
+            console.error('Failed to fetch data:', error);
+            throw error;
+        }
+    }
+)
+
+
+export const addNewChat = createAsyncThunk('conversations/addNewChat',
+    async (newChat, {dispatch, getState, extra: { db }}) => {
+        try {
+            const id = await db.conversations.add(newChat);
+            await db.conversations.where('conversationId').notEqual(id).modify({checked: false});
+            return getConversationsFromDB(db);
+        } catch (error) {
+            console.error('Failed to fetch data:', error);
+            throw error;
+        }
+    }
+)
+
+export const switchConversation = createAsyncThunk('conversations/switchConversation',
+    async (conversationId, {extra: { db }}) => {
+    try {
+        await db.conversations.where('conversationId').equals(conversationId).modify({checked: true});
+        await db.conversations.where('conversationId').notEqual(conversationId).modify({checked: false});
+        return getConversationsFromDB(db);
+    } catch (error) {
+        console.error('Failed to fetch data:', error);
+        throw error;
+    }
+})
+
+
+const conversationSlice = createSlice({
+    name: 'conversations',
+    initialState: {
+        conversations: [],
+    },
+    reducers: {},
+    extraReducers: (builder) => {
+        builder.addCase(getConversations.fulfilled, (state, action) => {
+            state.conversations =  action.payload;
+        })
+        .addCase(addNewChat.fulfilled, (state, action) => {
+            state.conversations =  action.payload;
+        })
+        .addCase(switchConversation.fulfilled, (state, action) => {
+            state.conversations =  action.payload;
+        })
+    }
+})
+
+
+export const selectConversations = (state) => state.conversation.conversations;
+export default conversationSlice.reducer;

@@ -1,45 +1,37 @@
 import Sidebar from "./Sidebar";
 import Chat from "./Chat";
 import { ConversationsContext, ConversationsDispatchContext } from "./conversation/ConversationContext";
-import { ChatsContext, ChatsActionContext } from "./chat/ChatsContext";
-import ConversationReducer from './conversation/ConversationReducer'
-import ChatsReducer from "./chat/ChatsReducer";
-import {useReducer} from "react";
+import {ChatsContext, SetRenderingChatIdContext} from "./chat/ChatsContext";
+import { useSelector, useDispatch } from "react-redux";
+import {selectConversations, getConversations} from './conversation/ConversationReducer'
+import {useEffect, useState} from "react";
+
 export default function ParentWindows() {
 
-    const [ conversations, dispatch ] = useReducer(ConversationReducer, [
-        {
-            conversationId: 1,
-            name: "John Doe1",
-        },
-        {
-            conversationId: 2,
-            name: "John Doe2",
-        },
-        {
-            conversationId: 3,
-            name: "John Doe3",
-        }
-    ])
+    const dispatch = useDispatch();
+    const conversations = useSelector(selectConversations);
 
-    const [ chats, chatDispatch ] = useReducer(ChatsReducer, [])
+    useEffect(() => {
+        dispatch(getConversations());
+    }, [dispatch])
 
-    const selectedId = conversations?.find(conversation => conversation.checked) ?
-        conversations?.find(conversation => conversation.checked).conversationId :
+    const findChecked = conversations?.find(conversation => conversation.checked);
+    const selectedId: number = findChecked ?
+        findChecked.conversationId :
         conversations?.[0]?.conversationId;
 
-    const currentChats = chats?.filter(chat => chat.conversationId === selectedId);
+    const [ renderingChatId: number, setRenderingChatId ] = useState();
 
     return (
         <div className='App'>
             <ConversationsContext.Provider value={conversations}>
                 <ConversationsDispatchContext.Provider value={dispatch}>
-                <Sidebar selectedId={selectedId} />
-                    <ChatsContext.Provider value={currentChats}>
-                        <ChatsActionContext.Provider value={chatDispatch}>
-                            <Chat selectedId={selectedId}/>
-                        </ChatsActionContext.Provider>
-                    </ChatsContext.Provider>
+                    <SetRenderingChatIdContext.Provider value={setRenderingChatId}>
+                        <ChatsContext.Provider value={{renderingChatId, selectedId}}>
+                                <Sidebar/>
+                                <Chat/>
+                        </ChatsContext.Provider>
+                    </SetRenderingChatIdContext.Provider>
                 </ConversationsDispatchContext.Provider>
             </ConversationsContext.Provider>
         </div>
