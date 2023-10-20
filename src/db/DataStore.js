@@ -1,28 +1,5 @@
 import Dexie, { Table } from "dexie";
-import {useLiveQuery} from "dexie-react-hooks";
-import {v4 as uuidv4} from "uuid";
 
-export function FetchConversations(selectedId) {
-    console.log(selectedId);
-    return useLiveQuery(() => db.conversations.orderBy('conversationId').reverse().toArray(), [], []);
-}
-
-export function UpdateLatestMessage(chatId: number, content: string) {
-    return db.chatMessages.update(chatId, {content: content})
-}
-
-export function FetchChatMessages(conversationId: number) {
-    console.log(conversationId);
-    return useLiveQuery(() => {
-        if (conversationId === undefined) {
-            // conversationId 是 undefined，返回一个空数组
-            return Promise.resolve([]);
-        } else {
-            // conversationId 是一个数字，执行查询
-            return db.chatMessages.where('conversationId').equals(conversationId).toArray();
-        }
-    }, [conversationId]);
-}
 export interface Conversation {
     name: string;
     conversationId: number;
@@ -37,9 +14,16 @@ export interface ChatMessage {
     createdAt: string;
 }
 
+export class Settings {
+    settingId: number;
+    defaultModel: string;
+    apiKey: string;
+}
+
 export class Chat extends Dexie {
-    conversations: Table<Conversation, string>;
-    chatMessages: Table<ChatMessage, string>;
+    conversations: Table<Conversation, number>;
+    chatMessages: Table<ChatMessage, number>;
+    settings: Table<Settings, number>
     constructor() {
         super("Chat");
         this.version(1).stores({
@@ -48,9 +32,14 @@ export class Chat extends Dexie {
         this.version(1).stores({
             chatMessages: "++chatId, conversationId, role, content, createdAt"
         });
+        this.version(1).stores({
+            settings: "++settingId, defaultModel"
+        });
+
         this.chatMessages = this.table("chatMessages");
         this.conversations = this.table("conversations");
+        this.settings = this.table("settings");
     }
 }
 
-export const db = new Chat();
+export const db:Chat = new Chat();

@@ -1,10 +1,9 @@
 import React, {useState} from "react";
-import {fetchEventSource} from "@microsoft/fetch-event-source";
 import { useContext } from "react";
 import {ChatsContext, SetRenderingChatIdContext} from "./chat/ChatsContext";
 import { useDispatch } from "react-redux";
 import {sendQuestion as doChat, updateLatestChatContent} from "./chat/ChatsReducer";
-import { OPENAI_API_KEY} from "./config/config";
+import {Button} from "react-bootstrap";
 
 export default function UserInput() {
 
@@ -15,47 +14,51 @@ export default function UserInput() {
 
     const dispatch = useDispatch();
 
+    let source;
     React.useEffect(() => {
         if (!renderingChatId) {
+            if (source) {
+                console.log('close')
+                source.close();
+            }
             return;
         }
         const question = inputValue;
         setInputValue("")
+
+        source = new EventSource('http://127.0.0.1:8844/stream?question=' + question);
         let answer = '';
-        fetchEventSource('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + OPENAI_API_KEY
-            },
-            body: JSON.stringify({
-                model: "gpt-3.5-turbo",
-                messages: [{"role": "user", "content": question}],
-                stream: true,
-            }),
-            onmessage(event) {
-                if (event.data === '[DONE]') {
-                    console.log('stop');
+
+        source.addEventListener('message', function (e) {
+            if (e.data) {
+                if (e.data === 'end') {
+                    source.close();
+                    setRenderingChatId(null);
                     return;
                 }
-                const data = JSON.parse(event.data)
-                answer += data.choices[0]?.delta?.content || '';
+                answer += e.data;
+                console.log(answer);
                 dispatch(updateLatestChatContent({
                     chatId: renderingChatId,
                     content: answer
                 }))
-            },
-            onclose() {
-                console.log('close');
-            },
-            onerror(error) {
-                console.log('error', error);
-            },
-            onopen() {
-                console.log('open');
             }
-
         });
+
+        source.addEventListener('open', function (e) {
+            console.log('open');
+        });
+
+
+        source.addEventListener('error', function (e) {
+            if (e.readyState == EventSource.CLOSED) {
+                console.log('close');
+            }
+        });
+
+        return () => {
+            source.close();
+        }
     }, [renderingChatId]);
 
 
@@ -84,8 +87,14 @@ export default function UserInput() {
         }
     }
 
+    const handleStop = () => {
+        setRenderingChatId(null);
+    }
+
     return (
         <div className="bottom-section">
+            {renderingChatId && <Button style={{marginBottom: '15px'}} onClick={handleStop} variant="outline-light">STOP</Button>}
+
             <div className="input-container">
                 <input onKeyDown={(e) => handleKeyDown(e)} value={inputValue} onChange={(e) => {
                     setInputValue(e.target.value);

@@ -20,8 +20,6 @@ export default function Chat(props) {
         dispatch(setChatList(selectedId));
     }, [dispatch, selectedId])
 
-
-
     return (
         <section className="main">
             {chatList?.length === 0 && <h1>Bobby GPT</h1>}
