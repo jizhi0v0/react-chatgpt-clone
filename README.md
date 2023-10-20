@@ -6,8 +6,8 @@ completed:
 3. Store conversation, chatHistory in indexedb;
 
 Coming soon:
-1.Abort current request when switch/new a chat
-2.Support changing apikey and model on the settings page
+1. Abort current request when switch/new a chat
+2. Support changing apikey and model on the settings page
 more...
 
 
