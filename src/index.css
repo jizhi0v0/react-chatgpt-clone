@@ -114,6 +114,7 @@ input:focus {
 #submit {
     margin-left: 10px; /* 添加按钮右边距 */
     cursor: pointer;
+    color: wheat;
 }
 
 .feed {
